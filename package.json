@@ -1,0 +1,12 @@
+{
+  "name": "central-agentes-ia-ctjl",
+  "version": "1.0.0",
+  "description": "Central de Agentes IA - Centro de Treinamento Juarez Leite",
+  "main": "server.cjs",
+  "scripts": {
+    "start": "node server.cjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
