@@ -124,8 +124,16 @@ async function executarItemNode(id) {
     };
     if (t.deal_id) payload.deal_id = t.deal_id;
     if (t.due_date || t.prazo) payload.due_date = t.due_date || t.prazo;
-    await voibiReq('POST', '/api/v1/tasks', payload);
-    log.push('ok tarefa criada: ' + payload.title);
+    const resp = await voibiReq('POST', '/api/v1/tasks', payload);
+    const novoId = resp && resp.data && resp.data.id;
+    // O POST /tasks do Voibi tem um bug: retorna sucesso mas as vezes a tarefa
+    // nao persiste. Confirmamos buscando pelo id retornado.
+    let persistiu = false;
+    if (novoId) {
+      try { await voibiReq('GET', '/api/v1/tasks/' + novoId); persistiu = true; } catch (e) { persistiu = false; }
+    }
+    if (persistiu) log.push('ok tarefa criada: ' + payload.title);
+    else log.push('ERRO Voibi nao persistiu a tarefa "' + payload.title + '" (bug da API de criar tarefa; reportar ao suporte Voibi)');
   }
 
   try {
