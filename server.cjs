@@ -74,6 +74,22 @@ function sbPatch(table, params, body) {
   });
 }
 
+// Log de sistema (fire-and-forget)
+function logSistema(tipo, usuario, detalhe) {
+  sbReq('POST', 'logs_sistema', '', JSON.stringify({ tipo, usuario: usuario || null, detalhe: detalhe || null }), () => {});
+}
+
+// Traduz erro tecnico para linguagem simples
+function erroAmigavel(linha) {
+  const t = linha.replace(/^ERRO\s*/i, '').trim();
+  if (/nao persistiu|não persistiu/i.test(t)) return 'O Voibi não salvou a tarefa criada (limitação atual da API do Voibi).';
+  if (/sem responsável|sem responsavel/i.test(t)) return 'Tarefa sem responsável definido.';
+  if (/etiqueta/i.test(t) && /existe/i.test(t)) return 'A etiqueta de revisão não existe no Voibi.';
+  if (/404|not found/i.test(t)) return 'Registro não encontrado no Voibi.';
+  if (/voibi/i.test(t)) return 'Não foi possível concluir uma ação no Voibi.';
+  return t;
+}
+
 // ── Voibi (execucao da aprovacao direto em Node, sem Python) ──
 const VOIBI_BASE = process.env.VOIBI_BASE_URL || 'https://chat.voibi.com.br';
 const VOIBI_KEY = process.env.VOIBI_API_KEY_EMPRESA || '';
@@ -259,6 +275,7 @@ http.createServer(async (req, res) => {
     } catch (e) {
       console.error('spawn varredura falhou:', e.message);
     }
+    logSistema('varredura_manual', sess.nome, 'Iniciou varredura manual');
     j(res, 202, { ok: true, started: true, message: 'Varredura iniciada. Aguarde 1 a 2 minutos e atualize.' });
     return;
   }
@@ -269,12 +286,41 @@ http.createServer(async (req, res) => {
     const { id } = await parseBody(req);
     if (!id || !/^\d+$/.test(String(id))) { j(res, 400, { erro: 'id inválido' }); return; }
     try {
-      await sbPatch('central_aprovacao', `id=eq.${id}`, { status: 'Aprovado' });
+      await sbPatch('central_aprovacao', `id=eq.${id}`, { status: 'Aprovado', aprovado_por: sess.nome, decidido_em: new Date().toISOString() });
       const resultado = await executarItemNode(id);
+      const erros = [...new Set(resultado.log.filter(l => l.startsWith('ERRO')).map(erroAmigavel))];
+      await sbPatch('central_aprovacao', `id=eq.${id}`, { erro_execucao: erros.length ? erros.join(' ') : null });
+      logSistema('aprovacao', sess.nome, `Aprovou sugestão #${id}`);
       j(res, 200, { ok: resultado.ok, output: resultado.log.join('\n') });
     } catch (e) {
       j(res, 200, { ok: false, output: 'Erro: ' + e.message });
     }
+    return;
+  }
+
+  if (p === '/rejeitar' && req.method === 'POST') {
+    const sess = getSession(req);
+    if (!sess) { j(res, 401, { erro: 'Não autenticado' }); return; }
+    const { id, motivo } = await parseBody(req);
+    if (!id || !/^\d+$/.test(String(id))) { j(res, 400, { erro: 'id inválido' }); return; }
+    if (!motivo || !String(motivo).trim()) { j(res, 400, { erro: 'Motivo obrigatório' }); return; }
+    try {
+      await sbPatch('central_aprovacao', `id=eq.${id}`, { status: 'Rejeitado', rejeitado_por: sess.nome, motivo_rejeicao: String(motivo).trim(), decidido_em: new Date().toISOString() });
+      logSistema('rejeicao', sess.nome, `Rejeitou sugestão #${id}`);
+      j(res, 200, { ok: true });
+    } catch (e) {
+      j(res, 200, { ok: false, erro: e.message });
+    }
+    return;
+  }
+
+  if (p === '/logs' && req.method === 'GET') {
+    const sess = getSession(req);
+    if (!sess) { j(res, 401, { erro: 'Não autenticado' }); return; }
+    sbReq('GET', 'logs_sistema', 'select=*&order=id.desc&limit=100', null, (err, st, d) => {
+      res.writeHead(st || 200, { 'Content-Type': 'application/json' });
+      res.end(d || '[]');
+    });
     return;
   }
 

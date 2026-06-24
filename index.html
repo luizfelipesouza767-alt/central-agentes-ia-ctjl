@@ -126,6 +126,50 @@ h1,h2,h3,h4{font-family:'Plus Jakarta Sans','Inter',sans-serif;letter-spacing:-.
 .pill.aprovado{background:var(--success-soft);color:#0a865f}
 .pill.rejeitado{background:var(--danger-soft);color:#c4283f}
 .pill.executado{background:var(--primary-soft);color:var(--primary)}
+.pill.erro{background:var(--danger-soft);color:#c4283f}
+
+/* ── KPI coloridos (clean) ── */
+.kpi.k-pend{border-top:3px solid var(--warn)} .kpi.k-pend .val{color:#b6790a}
+.kpi.k-apr{border-top:3px solid var(--success)} .kpi.k-apr .val{color:#0a865f}
+.kpi.k-rej{border-top:3px solid var(--danger)} .kpi.k-rej .val{color:#c4283f}
+.kpi.k-tot{border-top:3px solid var(--primary)} .kpi.k-tot .val{color:var(--primary)}
+
+/* ── Filtros ── */
+.filtros{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:18px;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:14px 16px;box-shadow:var(--shadow-sm)}
+.filtro-campo{display:flex;flex-direction:column;gap:5px}
+.filtro-campo label{font-size:11px;font-weight:600;color:var(--muted)}
+.filtro-campo input,.filtro-campo select{padding:8px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:13px;font-family:inherit;color:var(--ink);background:#fff;outline:none;transition:.15s;cursor:pointer}
+.filtro-campo input:focus,.filtro-campo select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(91,91,240,.12)}
+.filtro-limpar{margin-left:auto;align-self:flex-end;padding:8px 16px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink-2);font-weight:600;font-size:12.5px;cursor:pointer;font-family:inherit;transition:.15s}
+.filtro-limpar:hover{background:var(--surface-2)}
+.filtro-count{font-size:12px;color:var(--muted);margin:-6px 0 14px 2px}
+
+/* ── Card: cor do agente + decisao + erro ── */
+.auto-item.ag-analista{border-left:3px solid var(--primary)}
+.auto-item.ag-gestor{border-left:3px solid var(--success)}
+.auto-item.ag-qualidade{border-left:3px solid var(--warn)}
+.decision-line{font-size:12px;color:var(--muted);margin-top:7px;display:flex;align-items:center;gap:6px}
+.decision-line b{color:var(--ink-2);font-weight:600}
+.decision-line svg{width:13px;height:13px;flex:none}
+.decision-line.ok svg{color:var(--success)} .decision-line.rej svg{color:var(--danger)}
+.motivo-box{margin-top:8px;background:var(--danger-soft);border-radius:9px;padding:8px 12px;font-size:12.5px;color:#a12c41;line-height:1.45}
+.motivo-box b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.03em;opacity:.8;margin-bottom:2px;font-weight:700}
+.erro-box{margin-top:8px;background:#fff5f5;border:1px solid #f6c9d2;border-radius:9px;padding:8px 12px;font-size:12.5px;color:#c4283f;line-height:1.45;display:flex;gap:8px;align-items:flex-start}
+.erro-box svg{width:15px;height:15px;flex:none;margin-top:1px}
+.erro-box b{display:block;font-weight:700;margin-bottom:1px}
+
+/* ── Logs ── */
+.logs-lista{max-height:55vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.log-row{display:flex;gap:11px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.log-ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none}
+.log-ic svg{width:15px;height:15px}
+.log-ic.t-auto{background:var(--primary-soft);color:var(--primary)}
+.log-ic.t-manual{background:var(--accent);color:#fff;opacity:.9}
+.log-ic.t-aprovacao{background:var(--success-soft);color:var(--success)}
+.log-ic.t-rejeicao{background:var(--danger-soft);color:var(--danger)}
+.log-body{flex:1;min-width:0}
+.log-det{font-size:13px;color:var(--ink);font-weight:500}
+.log-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
 
 /* ── Expand toggle ── */
 .expand-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--primary);font-weight:600;cursor:pointer;padding:6px 0 0;background:none;border:none;font-family:inherit}
@@ -332,6 +376,10 @@ input:checked+.toggle-track::after{left:21px}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
       Atualizar
     </button>
+    <button class="tbtn" onclick="abrirLogs()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+      Logs
+    </button>
     <button class="tbtn primary" id="btnRodar" style="display:none" onclick="rodarVarredura()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
       Rodar Varredura
@@ -343,8 +391,34 @@ input:checked+.toggle-track::after{left:21px}
 
     <!-- Aprovação -->
     <div class="page show" id="page-aprovacao">
-      <div class="page-head"><h1>Central de Aprovação</h1><p>Sugestões geradas pelos agentes — revise e aprove antes da execução.</p></div>
+      <div class="page-head"><h1>Sugestões dos Agentes</h1><p>Revise e aprove para a execução no CRM - Voibi</p></div>
       <div class="kpi-row c4" id="kpiAprovacao"></div>
+      <div class="filtros">
+        <div class="filtro-campo">
+          <label>Data</label>
+          <input type="date" id="fData" onchange="renderAprovacao()">
+        </div>
+        <div class="filtro-campo">
+          <label>Status</label>
+          <select id="fStatus" onchange="renderAprovacao()">
+            <option value="">Todos</option>
+            <option value="Pendente">Pendentes</option>
+            <option value="Aprovado">Aprovadas</option>
+            <option value="Rejeitado">Rejeitadas</option>
+          </select>
+        </div>
+        <div class="filtro-campo">
+          <label>Agente</label>
+          <select id="fAgente" onchange="renderAprovacao()">
+            <option value="">Todos</option>
+            <option value="Analista Comercial">Analista Comercial</option>
+            <option value="Gestor de Tarefas">Gestor de Tarefas</option>
+            <option value="Qualidade CRM">Qualidade CRM</option>
+          </select>
+        </div>
+        <button class="filtro-limpar" onclick="limparFiltros()">Limpar filtros</button>
+      </div>
+      <div class="filtro-count" id="filtroCount"></div>
       <div id="listaAprovacao"><div class="loading">Carregando...</div></div>
     </div>
 
@@ -426,6 +500,33 @@ input:checked+.toggle-track::after{left:21px}
     <div class="modal-footer">
       <button class="btn-cancel" onclick="fecharModalUsuario()">Cancelar</button>
       <button class="btn-save" id="btnSalvarUsuario" onclick="salvarNovoUsuario()">Cadastrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Rejeitar ── -->
+<div class="modal-overlay" id="modalRejOverlay" style="display:none" onclick="if(event.target===this)fecharModalRej()">
+  <div class="modal-card">
+    <h3>Rejeitar sugestão</h3>
+    <p class="modal-sub">Descreva o motivo da rejeição. É obrigatório e ficará registrado no card.</p>
+    <div class="modal-label">Motivo <span>* obrigatório</span></div>
+    <textarea class="modal-textarea" id="modalRejMotivo" placeholder="Ex: a sugestão não se aplica ao momento da operação."></textarea>
+    <div class="modal-error" id="modalRejErro">Preencha o motivo da rejeição.</div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="fecharModalRej()">Cancelar</button>
+      <button class="btn-save" id="btnConfirmarRej" onclick="confirmarRejeicao()">Confirmar rejeição</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Logs ── -->
+<div class="modal-overlay" id="modalLogsOverlay" style="display:none" onclick="if(event.target===this)fecharLogs()">
+  <div class="modal-card" style="width:620px">
+    <h3>Logs do sistema</h3>
+    <p class="modal-sub">Varreduras automáticas, manuais e ações dos usuários, com data e horário.</p>
+    <div id="logsLista" class="logs-lista"><div class="loading">Carregando...</div></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="fecharLogs()">Fechar</button>
     </div>
   </div>
 </div>
@@ -572,7 +673,7 @@ function showPage(id, navEl) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById(`page-${id}`).classList.add('show');
   navEl.classList.add('active');
-  const titles = {aprovacao:'Central de Aprovação',tarefas:'Tarefas Geradas',agentes:'Agentes',usuarios:'Usuários'};
+  const titles = {aprovacao:'Sugestões dos Agentes',tarefas:'Tarefas Geradas',agentes:'Agentes',usuarios:'Usuários'};
   document.getElementById('topbarTitle').textContent = titles[id] || id;
   if (id === 'usuarios') carregarUsuarios();
   if (id === 'agentes') renderAgentes();
@@ -596,68 +697,158 @@ async function aprovar(id, btn) {
   } else { toast('Erro ao aprovar.','err'); btn.disabled = false; }
 }
 
-async function rejeitar(id, btn) {
-  btn.textContent = '...'; btn.disabled = true;
-  const r = await apiFetch(`/api/central_aprovacao?id=eq.${id}`, { method:'PATCH', body: JSON.stringify({status:'Rejeitado'}) });
-  if (r.ok) { toast('Sugestão rejeitada.'); carregarAprovacao(); }
-  else { toast('Erro ao rejeitar.','err'); btn.disabled = false; }
+let _aprovacaoRows = [];
+let _rejId = null;
+
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// Abre o modal de rejeição (motivo obrigatório)
+function rejeitar(id) {
+  _rejId = id;
+  document.getElementById('modalRejMotivo').value = '';
+  document.getElementById('modalRejErro').style.display = 'none';
+  document.getElementById('modalRejOverlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('modalRejMotivo').focus(), 50);
+}
+function fecharModalRej() { document.getElementById('modalRejOverlay').style.display = 'none'; _rejId = null; }
+
+async function confirmarRejeicao() {
+  const motivo = document.getElementById('modalRejMotivo').value.trim();
+  if (!motivo) { document.getElementById('modalRejErro').style.display = 'block'; return; }
+  const btn = document.getElementById('btnConfirmarRej');
+  btn.disabled = true; btn.textContent = 'Rejeitando...';
+  const r = await apiFetch('/rejeitar', { method:'POST', body: JSON.stringify({ id: _rejId, motivo }) });
+  btn.disabled = false; btn.textContent = 'Confirmar rejeição';
+  if (r.ok) { toast('Sugestão rejeitada.'); fecharModalRej(); carregarAprovacao(); }
+  else { toast('Erro ao rejeitar.', 'err'); }
+}
+
+function limparFiltros() {
+  document.getElementById('fData').value = '';
+  document.getElementById('fStatus').value = '';
+  document.getElementById('fAgente').value = '';
+  renderAprovacao();
 }
 
 async function carregarAprovacao() {
-  const container = document.getElementById('listaAprovacao');
   const kpi = document.getElementById('kpiAprovacao');
   try {
-    const r = await apiFetch('/api/central_aprovacao?select=id,data,agente,sugestao,status,executado&order=id.desc');
+    const r = await apiFetch('/api/central_aprovacao?select=*&order=id.desc');
     if (!r.ok) throw new Error('Erro ao buscar');
-    const rows = await r.json();
-    const pendentes = rows.filter(x=>x.status==='Pendente').length;
-    const aprovados = rows.filter(x=>x.status==='Aprovado').length;
-    const rejeitados = rows.filter(x=>x.status==='Rejeitado').length;
+    _aprovacaoRows = await r.json();
+    const pendentes = _aprovacaoRows.filter(x=>x.status==='Pendente').length;
+    const aprovados = _aprovacaoRows.filter(x=>x.status==='Aprovado').length;
+    const rejeitados = _aprovacaoRows.filter(x=>x.status==='Rejeitado').length;
     document.getElementById('badgeAprovacao').textContent = pendentes;
-
     kpi.innerHTML = `
-      <div class="kpi"><div class="label">Pendentes</div><div class="val">${pendentes}</div></div>
-      <div class="kpi"><div class="label">Aprovadas</div><div class="val">${aprovados}</div></div>
-      <div class="kpi"><div class="label">Rejeitadas</div><div class="val">${rejeitados}</div></div>
-      <div class="kpi"><div class="label">Total geradas</div><div class="val">${rows.length}</div></div>
+      <div class="kpi k-pend"><div class="label">Pendentes</div><div class="val">${pendentes}</div></div>
+      <div class="kpi k-apr"><div class="label">Aprovadas</div><div class="val">${aprovados}</div></div>
+      <div class="kpi k-rej"><div class="label">Rejeitadas</div><div class="val">${rejeitados}</div></div>
+      <div class="kpi k-tot"><div class="label">Total geradas</div><div class="val">${_aprovacaoRows.length}</div></div>
     `;
-
-    if (!rows.length) { container.innerHTML = `<div class="empty"><h3>Nenhuma sugestão ainda</h3><p>Os agentes rodam a cada 6 horas via crontab.</p></div>`; return; }
-
-    container.innerHTML = rows.map(r => {
-      const cls = agClass(r.agente);
-      const stCls = r.executado ? 'executado' : r.status.toLowerCase();
-      const stLabel = r.executado ? `${r.status} · Executado` : r.status;
-      const acoes = r.status === 'Pendente' ? `
-        <button class="mini-btn ok" onclick="aprovar(${r.id},this)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Aprovar
-        </button>
-        <button class="mini-btn no" onclick="rejeitar(${r.id},this)">Rejeitar</button>
-      ` : '';
-      return `
-      <div class="auto-item">
-        <div class="auto-ic" style="${agIcStyle(r.agente)}">${agIcon(r.agente)}</div>
-        <div class="auto-body">
-          <div class="who ${cls}">${r.agente}</div>
-          <div class="auto-ttl">${fmtData(r.data)}</div>
-          <div class="auto-meta"><span class="pill ${stCls}">${stLabel}</span></div>
-          <div class="auto-actions">
-            ${acoes}
-            <button class="expand-toggle" id="tgl-${r.id}" onclick="toggleExpand(${r.id})">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              Ver análise completa
-            </button>
-          </div>
-          <div class="expand-body" id="body-${r.id}">
-            <div class="analysis-report">${marked.parse(r.sugestao||'')}</div>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
+    renderAprovacao();
   } catch(e) {
-    container.innerHTML = `<div class="empty"><h3>Erro ao carregar</h3><p>${e.message}</p></div>`;
+    document.getElementById('listaAprovacao').innerHTML = `<div class="empty"><h3>Erro ao carregar</h3><p>${esc(e.message)}</p></div>`;
   }
 }
+
+function renderAprovacao() {
+  const container = document.getElementById('listaAprovacao');
+  const countEl = document.getElementById('filtroCount');
+  const fData = document.getElementById('fData').value;
+  const fStatus = document.getElementById('fStatus').value;
+  const fAgente = document.getElementById('fAgente').value;
+
+  let rows = _aprovacaoRows.slice();
+  if (fStatus) rows = rows.filter(r => r.status === fStatus);
+  if (fAgente) rows = rows.filter(r => r.agente === fAgente);
+  if (fData) rows = rows.filter(r => (r.data||'').slice(0,10) === fData);
+
+  const temFiltro = fData || fStatus || fAgente;
+  countEl.textContent = temFiltro ? `${rows.length} de ${_aprovacaoRows.length} sugestão(ões)` : `${_aprovacaoRows.length} sugestão(ões)`;
+
+  if (!_aprovacaoRows.length) { container.innerHTML = `<div class="empty"><h3>Nenhuma sugestão ainda</h3><p>Os agentes rodam a cada 6 horas, ou use Rodar Varredura.</p></div>`; return; }
+  if (!rows.length) { container.innerHTML = `<div class="empty"><h3>Nada encontrado</h3><p>Nenhuma sugestão para esses filtros.</p></div>`; return; }
+
+  container.innerHTML = rows.map(cardAprovacao).join('');
+}
+
+function cardAprovacao(r) {
+  const cls = agClass(r.agente);
+  const stCls = r.executado ? 'executado' : r.status.toLowerCase();
+  const stLabel = r.executado ? `${r.status} · Executado` : r.status;
+  const acoes = r.status === 'Pendente' ? `
+    <button class="mini-btn ok" onclick="aprovar(${r.id},this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Aprovar
+    </button>
+    <button class="mini-btn no" onclick="rejeitar(${r.id})">Rejeitar</button>
+  ` : '';
+
+  let decisao = '';
+  if (r.status === 'Aprovado' && r.aprovado_por) {
+    decisao = `<div class="decision-line ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Aprovado por <b>${esc(r.aprovado_por)}</b>${r.decidido_em?` · ${fmtData(r.decidido_em)}`:''}</div>`;
+  }
+  if (r.status === 'Rejeitado' && r.rejeitado_por) {
+    decisao = `<div class="decision-line rej"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Rejeitado por <b>${esc(r.rejeitado_por)}</b>${r.decidido_em?` · ${fmtData(r.decidido_em)}`:''}</div>`;
+  }
+  const motivo = (r.status === 'Rejeitado' && r.motivo_rejeicao)
+    ? `<div class="motivo-box"><b>Motivo</b>${esc(r.motivo_rejeicao)}</div>` : '';
+  const erro = r.erro_execucao
+    ? `<div class="erro-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div><b>Erro na execução</b>${esc(r.erro_execucao)}</div></div>` : '';
+
+  return `
+  <div class="auto-item ag-${cls}">
+    <div class="auto-ic" style="${agIcStyle(r.agente)}">${agIcon(r.agente)}</div>
+    <div class="auto-body">
+      <div class="who ${cls}">${esc(r.agente)}</div>
+      <div class="auto-ttl">${fmtData(r.data)}</div>
+      <div class="auto-meta"><span class="pill ${stCls}">${stLabel}</span></div>
+      ${decisao}${motivo}${erro}
+      <div class="auto-actions">
+        ${acoes}
+        <button class="expand-toggle" id="tgl-${r.id}" onclick="toggleExpand(${r.id})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          Ver análise completa
+        </button>
+      </div>
+      <div class="expand-body" id="body-${r.id}">
+        <div class="analysis-report">${marked.parse(r.sugestao||'')}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Logs do sistema ──
+async function abrirLogs() {
+  document.getElementById('modalLogsOverlay').style.display = 'flex';
+  const lista = document.getElementById('logsLista');
+  lista.innerHTML = '<div class="loading">Carregando...</div>';
+  try {
+    const r = await apiFetch('/logs');
+    if (!r.ok) throw new Error('falha');
+    const logs = await r.json();
+    if (!logs.length) { lista.innerHTML = `<div class="empty"><h3>Sem registros</h3><p>Ainda não há logs.</p></div>`; return; }
+    const nome = { varredura_auto:'Varredura automática', varredura_manual:'Varredura manual', aprovacao:'Aprovação', rejeicao:'Rejeição' };
+    const icCls = { varredura_auto:'t-auto', varredura_manual:'t-manual', aprovacao:'t-aprovacao', rejeicao:'t-rejeicao' };
+    const icSvg = {
+      varredura_auto:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+      varredura_manual:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+      aprovacao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+      rejeicao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+    };
+    lista.innerHTML = logs.map(l => `
+      <div class="log-row">
+        <div class="log-ic ${icCls[l.tipo]||''}">${icSvg[l.tipo]||''}</div>
+        <div class="log-body">
+          <div class="log-det">${esc(l.detalhe||nome[l.tipo]||l.tipo)}</div>
+          <div class="log-meta">${esc(nome[l.tipo]||l.tipo)} · ${esc(l.usuario||'Sistema')} · ${fmtData(l.created_at)}</div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    lista.innerHTML = `<div class="empty"><h3>Erro ao carregar logs</h3><p>Tente novamente.</p></div>`;
+  }
+}
+function fecharLogs() { document.getElementById('modalLogsOverlay').style.display = 'none'; }
 
 // ── Tarefas ──
 function abrirModal(tarefaId, tarefaNome, statusInicial) {

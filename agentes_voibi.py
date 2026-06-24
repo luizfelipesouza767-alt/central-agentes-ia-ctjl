@@ -358,6 +358,11 @@ if __name__ == "__main__":
         executar_item(sys.argv[2])
     else:
         print(f"=== Iniciando varredura: {datetime.now().strftime('%d/%m/%Y %H:%M')} ===")
+        supabase_insert("logs_sistema", {
+            "tipo": "varredura_auto",
+            "usuario": "Sistema (agendado)",
+            "detalhe": "Varredura automática iniciada"
+        })
         executar_aprovados()
         rodar_analista_comercial()
         rodar_gestor_de_tarefas()
