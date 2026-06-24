@@ -17,11 +17,25 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
   process.exit(1);
 }
 
-const sessions = new Map();
+// Sessao por token assinado (HMAC), sem estado em memoria: sobrevive a reinicio/deploy.
+const SESSION_SECRET = process.env.SESSION_SECRET || SUPABASE_KEY || 'lfsc-fallback-secret';
 
 function sha256(t) { return crypto.createHash('sha256').update(t).digest('hex'); }
-function token() { return crypto.randomBytes(32).toString('hex'); }
-function getSession(req) { return sessions.get((req.headers['authorization']||'').replace('Bearer ','').trim()) || null; }
+function b64url(s) { return Buffer.from(s).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function assinar(p) { return crypto.createHmac('sha256', SESSION_SECRET).update(p).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+
+function criarToken(user) {
+  const p = b64url(JSON.stringify({ id: user.id, nome: user.nome, email: user.email, pode_varredura: user.pode_varredura, is_admin: user.is_admin }));
+  return p + '.' + assinar(p);
+}
+
+function getSession(req) {
+  const tk = (req.headers['authorization'] || '').replace('Bearer ', '').trim();
+  if (!tk || tk.indexOf('.') < 0) return null;
+  const [p, sig] = tk.split('.');
+  if (!p || !sig || sig !== assinar(p)) return null;
+  try { return JSON.parse(Buffer.from(p.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()); } catch { return null; }
+}
 
 function parseBody(req) {
   return new Promise(resolve => {
@@ -357,10 +371,8 @@ http.createServer(async (req, res) => {
         }
         const criado = JSON.parse(d2||'[]')[0] || {};
         if (primeiro) {
-          const tk = token();
           const sess2 = { id: criado.id, nome, email, pode_varredura, is_admin };
-          sessions.set(tk, sess2);
-          j(res, 201, { token: tk, user: sess2 });
+          j(res, 201, { token: criarToken(sess2), user: sess2 });
         } else {
           j(res, 201, { user: { id: criado.id, nome, email, pode_varredura, is_admin } });
         }
@@ -376,9 +388,7 @@ http.createServer(async (req, res) => {
     sbReq('GET', 'usuarios', q, null, (err, st, d) => {
       const users = JSON.parse(d||'[]');
       if (!users.length) { j(res, 401, { erro: 'Email ou senha incorretos' }); return; }
-      const tk = token();
-      sessions.set(tk, users[0]);
-      j(res, 200, { token: tk, user: users[0] });
+      j(res, 200, { token: criarToken(users[0]), user: users[0] });
     });
     return;
   }
