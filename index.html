@@ -715,9 +715,11 @@ function showPage(id, navEl) {
 }
 
 // ── Aprovação ──
+let _expandidos = new Set();
 function toggleExpand(id) {
+  const aberto = document.getElementById(`body-${id}`).classList.toggle('open');
   document.getElementById(`tgl-${id}`).classList.toggle('open');
-  document.getElementById(`body-${id}`).classList.toggle('open');
+  if (aberto) _expandidos.add(id); else _expandidos.delete(id);
 }
 
 async function aprovar(id, btn) {
@@ -843,6 +845,12 @@ function renderAprovacao() {
   if (!rows.length) { container.innerHTML = `<div class="empty"><h3>Nada encontrado</h3><p>Nenhuma sugestão para esses filtros.</p></div>`; return; }
 
   container.innerHTML = rows.map(cardAprovacao).join('');
+  // Reabre os cards que estavam expandidos antes do refresh
+  _expandidos.forEach(id => {
+    const body = document.getElementById(`body-${id}`);
+    const tgl = document.getElementById(`tgl-${id}`);
+    if (body && tgl) { body.classList.add('open'); tgl.classList.add('open'); }
+  });
 }
 
 function cardAprovacao(r) {
