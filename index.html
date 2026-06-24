@@ -390,7 +390,7 @@ input:checked+.toggle-track::after{left:21px}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
       Atualizar
     </button>
-    <button class="tbtn" onclick="abrirLogs()">
+    <button class="tbtn" id="btnLogs" onclick="abrirLogs()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
       Logs
     </button>
@@ -705,6 +705,11 @@ function showPage(id, navEl) {
   navEl.classList.add('active');
   const titles = {aprovacao:'Central de Aprovação',tarefas:'Tarefas Geradas',agentes:'Agentes',usuarios:'Usuários'};
   document.getElementById('topbarTitle').textContent = titles[id] || id;
+  // Logs e Rodar Varredura só fazem sentido na Central de Aprovação
+  const naAprovacao = id === 'aprovacao';
+  document.getElementById('btnLogs').style.display = naAprovacao ? '' : 'none';
+  document.getElementById('btnRodar').style.display = (naAprovacao && _session && _session.pode_varredura) ? '' : 'none';
+  document.getElementById('varreduraStatus').style.display = 'none';
   if (id === 'usuarios') carregarUsuarios();
   if (id === 'agentes') renderAgentes();
 }
