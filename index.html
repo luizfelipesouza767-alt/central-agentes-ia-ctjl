@@ -888,29 +888,24 @@ async function rodarVarredura() {
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> Rodando...`;
   st.style.display = 'inline-block';
   st.style.background = 'var(--warn-soft)'; st.style.color = '#a86b00';
-  st.textContent = 'Aguarde (30–60s)...';
+  st.textContent = 'Iniciando...';
 
   try {
     const r = await apiFetch('/rodar-varredura', { method:'POST' });
-    if (r.status === 403) { toast('Sem permissão para rodar varredura.','err'); }
+    if (r.status === 403) { toast('Sem permissão para rodar varredura.','err'); st.style.display='none'; }
     else {
-      const d = await r.json();
-      if (d.ok) {
-        st.style.background='var(--success-soft)'; st.style.color='#0a865f';
-        st.textContent='Varredura concluída.';
-        toast('Novas sugestões geradas com sucesso.');
-        setTimeout(carregarTudo, 1200);
-      } else {
-        st.style.background='var(--danger-soft)'; st.style.color='#c4283f';
-        st.textContent='Erro na varredura.';
-        toast('Erro na varredura. Verifique o terminal.','err');
-      }
+      st.style.background='var(--success-soft)'; st.style.color='#0a865f';
+      st.textContent='Varredura rodando em 2º plano...';
+      toast('Varredura iniciada. As sugestões aparecem em 1 a 2 minutos.');
+      // Atualiza a lista algumas vezes enquanto a varredura roda no servidor.
+      setTimeout(carregarTudo, 30000);
+      setTimeout(carregarTudo, 60000);
+      setTimeout(() => { carregarTudo(); st.style.display='none'; }, 100000);
     }
-  } catch(e) { toast('Erro de conexão.','err'); }
+  } catch(e) { toast('Erro de conexão.','err'); st.style.display='none'; }
 
   btn.disabled = false;
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Rodar Varredura`;
-  setTimeout(() => { st.style.display='none'; }, 6000);
 }
 
 // ── Init ──

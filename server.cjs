@@ -130,12 +130,11 @@ http.createServer(async (req, res) => {
     const sess = getSession(req);
     if (!sess) { j(res, 401, { erro: 'Não autenticado' }); return; }
     if (!sess.pode_varredura) { j(res, 403, { erro: 'Sem permissão para rodar varredura' }); return; }
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    const proc = spawn('python3', [PYTHON_SCRIPT]);
-    let out = '';
-    proc.stdout.on('data', d => out += d);
-    proc.stderr.on('data', d => out += d);
-    proc.on('close', code => res.end(JSON.stringify({ ok: code === 0, output: out })));
+    // Fire-and-forget: a varredura demora (consultas ao Voibi + Claude). Roda
+    // destacada para nao depender da conexao HTTP, e responde na hora.
+    const proc = spawn('python3', [PYTHON_SCRIPT], { detached: true, stdio: 'ignore' });
+    proc.unref();
+    j(res, 202, { ok: true, started: true, message: 'Varredura iniciada. Aguarde 1 a 2 minutos e atualize.' });
     return;
   }
 
