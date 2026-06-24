@@ -357,12 +357,18 @@ if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[1] == "--executar-item":
         executar_item(sys.argv[2])
     else:
+        manual = "--manual" in sys.argv
+        # Cron (sem --manual) so roda se VARREDURA_AUTO=on. Botao manual sempre roda.
+        if not manual and os.environ.get("VARREDURA_AUTO", "off").lower() != "on":
+            print("Varredura automatica desativada (VARREDURA_AUTO != on). Nada gerado.")
+            sys.exit(0)
         print(f"=== Iniciando varredura: {datetime.now().strftime('%d/%m/%Y %H:%M')} ===")
-        supabase_insert("logs_sistema", {
-            "tipo": "varredura_auto",
-            "usuario": "Sistema (agendado)",
-            "detalhe": "Varredura automática iniciada"
-        })
+        if not manual:
+            supabase_insert("logs_sistema", {
+                "tipo": "varredura_auto",
+                "usuario": "Sistema (agendado)",
+                "detalhe": "Varredura automática iniciada"
+            })
         executar_aprovados()
         rodar_analista_comercial()
         rodar_gestor_de_tarefas()

@@ -269,7 +269,7 @@ http.createServer(async (req, res) => {
     // Fire-and-forget: a varredura demora (consultas ao Voibi + Claude). Roda
     // destacada para nao depender da conexao HTTP, e responde na hora.
     try {
-      const proc = spawn('python3', [PYTHON_SCRIPT], { detached: true, stdio: 'ignore' });
+      const proc = spawn('python3', [PYTHON_SCRIPT, '--manual'], { detached: true, stdio: 'ignore' });
       proc.on('error', e => console.error('Falha ao iniciar varredura (python indisponivel?):', e.message));
       proc.unref();
     } catch (e) {
