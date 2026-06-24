@@ -581,10 +581,15 @@ function toggleExpand(id) {
 }
 
 async function aprovar(id, btn) {
-  btn.textContent = '...'; btn.disabled = true;
-  const r = await apiFetch(`/api/central_aprovacao?id=eq.${id}`, { method:'PATCH', body: JSON.stringify({status:'Aprovado'}) });
-  if (r.ok) { toast('Sugestão aprovada. Será executada na próxima varredura.'); carregarAprovacao(); }
-  else { toast('Erro ao aprovar.','err'); btn.disabled = false; }
+  btn.textContent = 'Executando...'; btn.disabled = true;
+  const r = await apiFetch('/aprovar', { method:'POST', body: JSON.stringify({ id }) });
+  if (r.ok) {
+    const data = await r.json().catch(()=>({}));
+    if (data.ok) toast('Aprovado e executado no Voibi.');
+    else toast('Aprovado, mas houve aviso na execução. Veja o detalhe.','err');
+    if (data.output) console.log('Execução do item', id, '\n' + data.output);
+    carregarAprovacao();
+  } else { toast('Erro ao aprovar.','err'); btn.disabled = false; }
 }
 
 async function rejeitar(id, btn) {
@@ -786,8 +791,8 @@ const AGENTES_CONFIG = [
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
     desc: 'Analisa o funil de vendas e a base de contatos, detecta gargalos e gera diagnóstico acionável com tarefas priorizadas.',
     faz: 'Identifica represas por etapa, leads quentes parados, qualidade da base (% de campos preenchidos) e gera 3 recomendações do dia com tarefas concretas.',
-    como: 'Roda via Python + crontab (00h, 06h, 12h, 18h). Lê as tabelas `leads` e `contatos` do Supabase, chama Claude para análise e grava sugestão + ACOES_JSON na `central_aprovacao`.',
-    chips: ['Python', 'Claude API', 'Crontab 6h', 'Supabase']
+    como: 'Roda via Python + crontab (00h, 06h, 12h, 18h). Lê os deals e contatos VIVOS do CRM Voibi via API, chama Claude para análise e grava sugestão + ACOES_JSON na fila `central_aprovacao`. Ao aprovar, cria as tarefas direto no Voibi.',
+    chips: ['Python', 'Claude API', 'Crontab 6h', 'API Voibi']
   },
   {
     nome: 'Gestor de Tarefas', role: 'Gestão de prazos e carga',
@@ -797,8 +802,8 @@ const AGENTES_CONFIG = [
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
     desc: 'Monitora as tarefas da operação, identifica atrasos e desequilíbrio de carga, e sugere redistribuições e novas tarefas.',
     faz: 'Classifica tarefas em atrasadas, vencendo hoje e próximas 48h. Avalia carga por responsável e sugere criação e atualização de tarefas.',
-    como: 'Roda via Python + crontab. Lê a tabela `tarefas` do Supabase, analisa com Claude e grava sugestão na `central_aprovacao`. Ao aprovar, cria e atualiza as tarefas automaticamente.',
-    chips: ['Python', 'Claude API', 'Crontab 6h', 'Supabase']
+    como: 'Roda via Python + crontab. Lê as tarefas VIVAS do Voibi via API, analisa com Claude e grava sugestão na fila `central_aprovacao`. Ao aprovar, cria e atualiza as tarefas direto no Voibi.',
+    chips: ['Python', 'Claude API', 'Crontab 6h', 'API Voibi']
   },
   {
     nome: 'Qualidade do CRM', role: 'Higiene e completude da base',
@@ -808,8 +813,8 @@ const AGENTES_CONFIG = [
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
     desc: 'Audita a qualidade dos dados de leads e contatos, identifica duplicatas e campos críticos ausentes.',
     faz: 'Detecta contatos com email/empresa faltando, duplicatas suspeitas, leads sem origem, cards de Suporte no funil comercial e calcula % de completude.',
-    como: 'Roda via Python + crontab. Lê `leads` e `contatos` no Supabase (primeiros 50), analisa com Claude e grava sugestão. Ao aprovar, marca contatos com `revisao_pendente = true` no Supabase.',
-    chips: ['Python', 'Claude API', 'Crontab 6h', 'Supabase']
+    como: 'Roda via Python + crontab. Lê contatos e deals VIVOS do Voibi via API, analisa com Claude e grava sugestão. Ao aprovar, aplica a etiqueta "Revisão CRM" nos contatos direto no Voibi.',
+    chips: ['Python', 'Claude API', 'Crontab 6h', 'API Voibi']
   }
 ];
 

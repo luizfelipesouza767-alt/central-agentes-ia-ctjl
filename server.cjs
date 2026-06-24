@@ -139,6 +139,22 @@ http.createServer(async (req, res) => {
     return;
   }
 
+  if (p === '/aprovar' && req.method === 'POST') {
+    const sess = getSession(req);
+    if (!sess) { j(res, 401, { erro: 'Não autenticado' }); return; }
+    const { id } = await parseBody(req);
+    if (!id || !/^\d+$/.test(String(id))) { j(res, 400, { erro: 'id inválido' }); return; }
+    sbReq('PATCH', 'central_aprovacao', `id=eq.${id}`, JSON.stringify({ status: 'Aprovado' }), (err, st) => {
+      if (err || st >= 400) { j(res, 400, { erro: 'Erro ao marcar como aprovado' }); return; }
+      const proc = spawn('python3', [PYTHON_SCRIPT, '--executar-item', String(id)]);
+      let out = '';
+      proc.stdout.on('data', d => out += d);
+      proc.stderr.on('data', d => out += d);
+      proc.on('close', code => j(res, 200, { ok: code === 0, output: out }));
+    });
+    return;
+  }
+
   if (p === '/usuarios' && req.method === 'GET') {
     const sess = getSession(req);
     if (!sess || !sess.is_admin) { j(res, 403, { erro: 'Sem permissão' }); return; }

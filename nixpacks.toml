@@ -1,0 +1,6 @@
+# Garante Node + Python no mesmo build.
+# O painel (server.cjs) precisa do python3 para executar a aprovacao na hora
+# (POST /aprovar -> spawn python3 agentes_voibi.py --executar-item N).
+# O "..." preserva os pacotes que o Nixpacks ja detecta sozinho.
+[phases.setup]
+nixPkgs = ["...", "python3"]
