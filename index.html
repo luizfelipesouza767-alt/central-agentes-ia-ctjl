@@ -445,6 +445,10 @@ function authHdr() { return { 'Content-Type': 'application/json', 'Authorization
 
 async function apiFetch(path, opts = {}) {
   const r = await fetch(path, { headers: authHdr(), ...opts });
+  if (r.status === 401) {
+    toast('Sua sessão expirou. Faça login novamente.', 'err');
+    logout();
+  }
   return r;
 }
 

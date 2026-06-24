@@ -56,6 +56,118 @@ function j(res, code, data) {
   res.end(JSON.stringify(data));
 }
 
+// ── Supabase em Promise ──
+function sbGet(table, params) {
+  return new Promise((resolve, reject) => {
+    sbReq('GET', table, params, null, (err, st, d) => {
+      if (err) return reject(err);
+      try { resolve(JSON.parse(d || '[]')); } catch { resolve([]); }
+    });
+  });
+}
+function sbPatch(table, params, body) {
+  return new Promise((resolve, reject) => {
+    sbReq('PATCH', table, params, JSON.stringify(body), (err, st) => {
+      if (err || st >= 400) return reject(err || new Error('PATCH status ' + st));
+      resolve(true);
+    });
+  });
+}
+
+// ── Voibi (execucao da aprovacao direto em Node, sem Python) ──
+const VOIBI_BASE = process.env.VOIBI_BASE_URL || 'https://chat.voibi.com.br';
+const VOIBI_KEY = process.env.VOIBI_API_KEY_EMPRESA || '';
+const VOIBI_TAG_REVISAO = process.env.VOIBI_TAG_REVISAO || 'Revisão CRM';
+const VOIBI_DEFAULT_USER_ID = process.env.VOIBI_DEFAULT_USER_ID || '';
+
+function voibiReq(method, apiPath, body) {
+  return new Promise((resolve, reject) => {
+    if (!VOIBI_KEY) return reject(new Error('VOIBI_API_KEY_EMPRESA ausente'));
+    const target = url.parse(VOIBI_BASE + apiPath);
+    const payload = body ? JSON.stringify(body) : null;
+    const r = https.request({
+      hostname: target.hostname, path: target.path, method,
+      headers: { 'Authorization': `Bearer ${VOIBI_KEY}`, 'Content-Type': 'application/json' }
+    }, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => {
+        if (res.statusCode >= 400) return reject(new Error(`${method} ${apiPath} -> ${res.statusCode}: ${d}`));
+        try { resolve(d ? JSON.parse(d) : {}); } catch { resolve({}); }
+      });
+    });
+    r.on('error', reject);
+    if (payload) r.write(payload);
+    r.end();
+  });
+}
+
+async function executarItemNode(id) {
+  const log = [];
+  const rows = await sbGet('central_aprovacao', `id=eq.${id}&select=id,agente,acoes_json,executado`);
+  const item = rows[0];
+  if (!item) return { ok: false, log: ['Item não encontrado'] };
+  if (item.executado) return { ok: true, log: ['Item já estava executado'] };
+
+  let acoes = {};
+  try { acoes = typeof item.acoes_json === 'string' ? JSON.parse(item.acoes_json) : (item.acoes_json || {}); } catch { acoes = {}; }
+  const agente = item.agente;
+
+  async function criarTarefa(t) {
+    const assigned = t.assigned_user_id || VOIBI_DEFAULT_USER_ID;
+    if (!assigned) { log.push('ERRO tarefa sem responsável: ' + (t.title || t.tarefa || '')); return; }
+    const payload = {
+      title: t.title || t.tarefa || 'Tarefa',
+      description: t.description || '',
+      assigned_user_id: assigned,
+      priority: t.priority || 'medium'
+    };
+    if (t.deal_id) payload.deal_id = t.deal_id;
+    if (t.due_date || t.prazo) payload.due_date = t.due_date || t.prazo;
+    await voibiReq('POST', '/api/v1/tasks', payload);
+    log.push('ok tarefa criada: ' + payload.title);
+  }
+
+  try {
+    if (agente === 'Analista Comercial') {
+      for (const t of (acoes.tarefas || [])) await criarTarefa(t);
+    } else if (agente === 'Gestor de Tarefas') {
+      for (const t of (acoes.tarefas_criar || [])) await criarTarefa(t);
+      for (const t of (acoes.tarefas_atualizar || [])) {
+        if (!t.id) continue;
+        const dados = {};
+        if (t.status) dados.status = t.status;
+        if (t.priority) dados.priority = t.priority;
+        if (Object.keys(dados).length) {
+          await voibiReq('PUT', '/api/v1/tasks/' + t.id, dados);
+          log.push('ok tarefa ' + t.id + ' atualizada');
+        }
+      }
+    } else if (agente === 'Qualidade CRM') {
+      const tagsResp = await voibiReq('GET', '/api/v1/tags');
+      const tag = (tagsResp.tags || []).find(x => (x.name || '').trim().toLowerCase() === VOIBI_TAG_REVISAO.trim().toLowerCase());
+      if (!tag) {
+        log.push('ERRO etiqueta "' + VOIBI_TAG_REVISAO + '" não existe no Voibi');
+      } else {
+        for (const c of (acoes.contatos_revisar || [])) {
+          if (c.contact_id) {
+            await voibiReq('POST', '/api/v1/contacts/tags', { contact_id: c.contact_id, tag_ids: [tag.id] });
+            log.push('ok contato ' + c.contact_id + ' etiquetado');
+          }
+        }
+      }
+    } else {
+      log.push('Agente desconhecido: ' + agente);
+    }
+  } catch (e) {
+    log.push('ERRO Voibi: ' + e.message);
+  }
+
+  await sbPatch('central_aprovacao', `id=eq.${id}`, { executado: true });
+  log.push('Item ' + id + ' marcado como executado.');
+  return { ok: !log.some(l => l.startsWith('ERRO')), log };
+}
+
 http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true);
   const p = parsed.pathname;
@@ -132,8 +244,13 @@ http.createServer(async (req, res) => {
     if (!sess.pode_varredura) { j(res, 403, { erro: 'Sem permissão para rodar varredura' }); return; }
     // Fire-and-forget: a varredura demora (consultas ao Voibi + Claude). Roda
     // destacada para nao depender da conexao HTTP, e responde na hora.
-    const proc = spawn('python3', [PYTHON_SCRIPT], { detached: true, stdio: 'ignore' });
-    proc.unref();
+    try {
+      const proc = spawn('python3', [PYTHON_SCRIPT], { detached: true, stdio: 'ignore' });
+      proc.on('error', e => console.error('Falha ao iniciar varredura (python indisponivel?):', e.message));
+      proc.unref();
+    } catch (e) {
+      console.error('spawn varredura falhou:', e.message);
+    }
     j(res, 202, { ok: true, started: true, message: 'Varredura iniciada. Aguarde 1 a 2 minutos e atualize.' });
     return;
   }
@@ -143,14 +260,13 @@ http.createServer(async (req, res) => {
     if (!sess) { j(res, 401, { erro: 'Não autenticado' }); return; }
     const { id } = await parseBody(req);
     if (!id || !/^\d+$/.test(String(id))) { j(res, 400, { erro: 'id inválido' }); return; }
-    sbReq('PATCH', 'central_aprovacao', `id=eq.${id}`, JSON.stringify({ status: 'Aprovado' }), (err, st) => {
-      if (err || st >= 400) { j(res, 400, { erro: 'Erro ao marcar como aprovado' }); return; }
-      const proc = spawn('python3', [PYTHON_SCRIPT, '--executar-item', String(id)]);
-      let out = '';
-      proc.stdout.on('data', d => out += d);
-      proc.stderr.on('data', d => out += d);
-      proc.on('close', code => j(res, 200, { ok: code === 0, output: out }));
-    });
+    try {
+      await sbPatch('central_aprovacao', `id=eq.${id}`, { status: 'Aprovado' });
+      const resultado = await executarItemNode(id);
+      j(res, 200, { ok: resultado.ok, output: resultado.log.join('\n') });
+    } catch (e) {
+      j(res, 200, { ok: false, output: 'Erro: ' + e.message });
+    }
     return;
   }
 
