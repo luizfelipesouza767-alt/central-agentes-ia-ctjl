@@ -240,15 +240,21 @@ function inserirSugestao(agente, sugestao, acoes) {
   });
 }
 
-async function contarDealsPorColuna() {
-  const out = {};
+// Foco no pipeline do Centro de Treinamento (Instituto); ignora Barbearia.
+const PIPELINE_INSTITUTO = process.env.VOIBI_PIPELINE || 'COMERCIAL INSTITUTO';
+
+async function getPipelineInstituto() {
   const data = await voibiReq('GET', '/api/v1/columns');
-  for (const pipe of (data.pipelines || [])) {
-    out[pipe.name] = {};
-    for (const col of (pipe.columns || [])) {
-      try { const r = await voibiReq('GET', `/api/v1/deals?column_id=${col.id}&limit=1`); out[pipe.name][col.name] = r.total || (r.pagination && r.pagination.total) || 0; }
-      catch { out[pipe.name][col.name] = 0; }
-    }
+  return (data.pipelines || []).find(p => (p.name || '').trim().toLowerCase() === PIPELINE_INSTITUTO.trim().toLowerCase()) || null;
+}
+
+async function distribuicaoFunil(pipe) {
+  const out = {};
+  if (!pipe) return out;
+  out[pipe.name] = {};
+  for (const col of (pipe.columns || [])) {
+    try { const r = await voibiReq('GET', `/api/v1/deals?column_id=${col.id}&limit=1`); out[pipe.name][col.name] = r.total || (r.pagination && r.pagination.total) || 0; }
+    catch { out[pipe.name][col.name] = 0; }
   }
   return out;
 }
@@ -265,9 +271,11 @@ async function descobrirUsuarios() {
 }
 
 async function agenteAnalista() {
-  const deals = (await voibiReq('GET', '/api/v1/deals?limit=50')).data || [];
+  const pipe = await getPipelineInstituto();
+  const filtro = pipe ? `sector_id=${pipe.id}&` : '';
+  const deals = (await voibiReq('GET', `/api/v1/deals?${filtro}limit=50`)).data || [];
   const contatos = (await voibiReq('GET', '/api/v1/contacts?limit=100')).data || [];
-  const distribuicao = await contarDealsPorColuna();
+  const distribuicao = await distribuicaoFunil(pipe);
   const usuarios = await descobrirUsuarios();
   const total = contatos.length;
   const semEmail = contatos.filter(c => !c.email).length;
@@ -312,8 +320,10 @@ async function agenteGestor() {
 }
 
 async function agenteQualidade() {
+  const pipe = await getPipelineInstituto();
+  const filtro = pipe ? `sector_id=${pipe.id}&` : '';
   const contatos = (await voibiReq('GET', '/api/v1/contacts?limit=100')).data || [];
-  const deals = (await voibiReq('GET', '/api/v1/deals?limit=50')).data || [];
+  const deals = (await voibiReq('GET', `/api/v1/deals?${filtro}limit=50`)).data || [];
   const prompt =
     'Voce e o agente de Qualidade do CRM do Centro de Treinamento Juarez Leite. Analise os dados VIVOS do Voibi e produza um relatorio de higiene.\n\n' +
     'CONTATOS (ate 100, com IDs reais):\n' + JSON.stringify(contatos, null, 2) + '\n\n' +
