@@ -314,6 +314,21 @@ http.createServer(async (req, res) => {
     return;
   }
 
+  if (p === '/reabrir' && req.method === 'POST') {
+    const sess = getSession(req);
+    if (!sess) { j(res, 401, { erro: 'Não autenticado' }); return; }
+    const { id } = await parseBody(req);
+    if (!id || !/^\d+$/.test(String(id))) { j(res, 400, { erro: 'id inválido' }); return; }
+    try {
+      await sbPatch('central_aprovacao', `id=eq.${id}`, { status: 'Pendente', rejeitado_por: null, motivo_rejeicao: null, decidido_em: null });
+      logSistema('reabertura', sess.nome, `Desfez a rejeição da sugestão #${id}`);
+      j(res, 200, { ok: true });
+    } catch (e) {
+      j(res, 200, { ok: false, erro: e.message });
+    }
+    return;
+  }
+
   if (p === '/logs' && req.method === 'GET') {
     const sess = getSession(req);
     if (!sess) { j(res, 401, { erro: 'Não autenticado' }); return; }

@@ -121,6 +121,20 @@ h1,h2,h3,h4{font-family:'Plus Jakarta Sans','Inter',sans-serif;letter-spacing:-.
 .mini-btn.ok{background:var(--success);color:#fff;border-color:transparent}
 .mini-btn.ok:hover{filter:brightness(1.06)}
 .mini-btn.no:hover{background:var(--danger-soft);color:var(--danger);border-color:#f6c9d2}
+.mini-btn.undo{color:var(--primary);border-color:#d9d7ff}
+.mini-btn.undo:hover{background:var(--primary-soft)}
+/* ── Caixa de confirmação (aprovação) ── */
+.confirm-box{background:var(--success-soft);border:1px solid #a7f3d0;border-radius:12px;padding:14px 16px;margin-bottom:18px;display:flex;gap:11px;align-items:flex-start}
+.confirm-box.warn{background:var(--warn-soft);border-color:#f4dca4}
+.confirm-box svg{width:20px;height:20px;flex:none;margin-top:1px}
+.confirm-box.ok svg{color:var(--success)} .confirm-box.warn svg{color:var(--warn)}
+.confirm-box .ct{font-size:13.5px;color:var(--ink);font-weight:600;margin-bottom:2px}
+.confirm-box .cs{font-size:12.5px;color:var(--ink-2)}
+.consultar-box{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.consultar-box .cl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:8px}
+.consultar-box .ci{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;color:var(--ink-2);line-height:1.45;margin-bottom:7px}
+.consultar-box .ci:last-child{margin-bottom:0}
+.consultar-box .ci svg{width:15px;height:15px;flex:none;margin-top:2px;color:var(--primary)}
 .pill{display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:20px}
 .pill.pendente{background:var(--warn-soft);color:#a86b00}
 .pill.aprovado{background:var(--success-soft);color:#0a865f}
@@ -391,7 +405,7 @@ input:checked+.toggle-track::after{left:21px}
 
     <!-- Aprovação -->
     <div class="page show" id="page-aprovacao">
-      <div class="page-head"><h1>Sugestões dos Agentes</h1><p>Revise e aprove para a execução no CRM - Voibi</p></div>
+      <div class="page-head"><h1>Central de Aprovação</h1><p>Revise e aprove para a execução no CRM - Voibi</p></div>
       <div class="kpi-row c4" id="kpiAprovacao"></div>
       <div class="filtros">
         <div class="filtro-campo">
@@ -527,6 +541,22 @@ input:checked+.toggle-track::after{left:21px}
     <div id="logsLista" class="logs-lista"><div class="loading">Carregando...</div></div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="fecharLogs()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Confirmação de Aprovação ── -->
+<div class="modal-overlay" id="modalConfirmOverlay" style="display:none" onclick="if(event.target===this)fecharConfirm()">
+  <div class="modal-card">
+    <h3>Sugestão aprovada</h3>
+    <p class="modal-sub">Veja o que foi executado e o que conferir no Voibi.</p>
+    <div id="confirmStatus"></div>
+    <div class="consultar-box">
+      <div class="cl">O que consultar no Voibi</div>
+      <div id="confirmConsultar"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-save" onclick="fecharConfirm()">Entendi</button>
     </div>
   </div>
 </div>
@@ -673,7 +703,7 @@ function showPage(id, navEl) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById(`page-${id}`).classList.add('show');
   navEl.classList.add('active');
-  const titles = {aprovacao:'Sugestões dos Agentes',tarefas:'Tarefas Geradas',agentes:'Agentes',usuarios:'Usuários'};
+  const titles = {aprovacao:'Central de Aprovação',tarefas:'Tarefas Geradas',agentes:'Agentes',usuarios:'Usuários'};
   document.getElementById('topbarTitle').textContent = titles[id] || id;
   if (id === 'usuarios') carregarUsuarios();
   if (id === 'agentes') renderAgentes();
@@ -687,14 +717,51 @@ function toggleExpand(id) {
 
 async function aprovar(id, btn) {
   btn.textContent = 'Executando...'; btn.disabled = true;
+  const row = _aprovacaoRows.find(x => x.id === id) || {};
   const r = await apiFetch('/aprovar', { method:'POST', body: JSON.stringify({ id }) });
   if (r.ok) {
     const data = await r.json().catch(()=>({}));
-    if (data.ok) toast('Aprovado e executado no Voibi.');
-    else toast('Aprovado, mas houve aviso na execução. Veja o detalhe.','err');
     if (data.output) console.log('Execução do item', id, '\n' + data.output);
-    carregarAprovacao();
+    await carregarAprovacao();
+    abrirConfirm(row.agente, data);
   } else { toast('Erro ao aprovar.','err'); btn.disabled = false; }
+}
+
+function consultarPorAgente(agente) {
+  agente = agente || '';
+  if (agente.includes('Qualidade')) return [
+    'Abra <b>Contatos</b> no Voibi.',
+    'Filtre pela etiqueta <b>Revisão CRM</b> para ver os contatos sinalizados para correção.'
+  ];
+  if (agente.includes('Gestor')) return [
+    'Abra <b>Tarefas</b> no Voibi.',
+    'Confira as tarefas com <b>status</b> e <b>prioridade</b> atualizados.',
+    'Veja também as novas tarefas criadas pelo agente.'
+  ];
+  if (agente.includes('Analista')) return [
+    'Abra <b>Tarefas</b> no Voibi.',
+    'Confira as tarefas geradas para a equipe a partir do diagnóstico do funil.'
+  ];
+  return ['Abra o Voibi e confira as alterações aplicadas.'];
+}
+
+function abrirConfirm(agente, data) {
+  const ok = data.ok !== false;
+  document.getElementById('confirmStatus').innerHTML = ok
+    ? `<div class="confirm-box ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><div><div class="ct">Aprovada e executada no Voibi</div><div class="cs">As ações foram aplicadas no CRM.</div></div></div>`
+    : `<div class="confirm-box warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div><div class="ct">Aprovada com avisos</div><div class="cs">Parte das ações não pôde ser concluída. Veja o detalhe no card.</div></div></div>`;
+  const arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+  document.getElementById('confirmConsultar').innerHTML = consultarPorAgente(agente).map(p => `<div class="ci">${arrow}<span>${p}</span></div>`).join('');
+  document.getElementById('modalConfirmOverlay').style.display = 'flex';
+}
+function fecharConfirm() { document.getElementById('modalConfirmOverlay').style.display = 'none'; }
+
+function desfazerRejeicao(id, btn) {
+  btn.disabled = true; btn.textContent = '...';
+  apiFetch('/reabrir', { method:'POST', body: JSON.stringify({ id }) }).then(r => {
+    if (r.ok) { toast('Rejeição desfeita. Voltou para Pendente.'); carregarAprovacao(); }
+    else { toast('Erro ao desfazer.','err'); btn.disabled = false; }
+  });
 }
 
 let _aprovacaoRows = [];
@@ -783,6 +850,11 @@ function cardAprovacao(r) {
     </button>
     <button class="mini-btn no" onclick="rejeitar(${r.id})">Rejeitar</button>
   ` : '';
+  const desfazer = r.status === 'Rejeitado' ? `
+    <button class="mini-btn undo" onclick="desfazerRejeicao(${r.id},this)" title="Desfazer rejeição">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Desfazer rejeição
+    </button>
+  ` : '';
 
   let decisao = '';
   if (r.status === 'Aprovado' && r.aprovado_por) {
@@ -805,7 +877,7 @@ function cardAprovacao(r) {
       <div class="auto-meta"><span class="pill ${stCls}">${stLabel}</span></div>
       ${decisao}${motivo}${erro}
       <div class="auto-actions">
-        ${acoes}
+        ${acoes}${desfazer}
         <button class="expand-toggle" id="tgl-${r.id}" onclick="toggleExpand(${r.id})">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           Ver análise completa
@@ -828,13 +900,14 @@ async function abrirLogs() {
     if (!r.ok) throw new Error('falha');
     const logs = await r.json();
     if (!logs.length) { lista.innerHTML = `<div class="empty"><h3>Sem registros</h3><p>Ainda não há logs.</p></div>`; return; }
-    const nome = { varredura_auto:'Varredura automática', varredura_manual:'Varredura manual', aprovacao:'Aprovação', rejeicao:'Rejeição' };
-    const icCls = { varredura_auto:'t-auto', varredura_manual:'t-manual', aprovacao:'t-aprovacao', rejeicao:'t-rejeicao' };
+    const nome = { varredura_auto:'Varredura automática', varredura_manual:'Varredura manual', aprovacao:'Aprovação', rejeicao:'Rejeição', reabertura:'Reabertura' };
+    const icCls = { varredura_auto:'t-auto', varredura_manual:'t-manual', aprovacao:'t-aprovacao', rejeicao:'t-rejeicao', reabertura:'t-auto' };
     const icSvg = {
       varredura_auto:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
       varredura_manual:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
       aprovacao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
-      rejeicao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+      rejeicao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+      reabertura:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>'
     };
     lista.innerHTML = logs.map(l => `
       <div class="log-row">
