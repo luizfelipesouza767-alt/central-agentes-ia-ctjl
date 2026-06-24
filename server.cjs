@@ -192,6 +192,134 @@ async function executarItemNode(id) {
   return { ok: !log.some(l => l.startsWith('ERRO')), log };
 }
 
+// ── Varredura em Node (gera sugestoes sem depender de Python no painel) ──
+const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY || '';
+const CLAUDE_MODEL = 'claude-sonnet-4-6';
+
+function chamarClaude(prompt) {
+  return new Promise((resolve, reject) => {
+    if (!ANTHROPIC_KEY) return reject(new Error('ANTHROPIC_KEY ausente'));
+    const payload = JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 2048, messages: [{ role: 'user', content: prompt }] });
+    const r = https.request({ hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' } }, res => {
+      let d = ''; res.on('data', c => d += c);
+      res.on('end', () => {
+        try { const jd = JSON.parse(d); if (jd.content && jd.content[0]) resolve(jd.content[0].text); else reject(new Error('resposta Claude inesperada')); }
+        catch (e) { reject(e); }
+      });
+    });
+    r.on('error', reject); r.write(payload); r.end();
+  });
+}
+
+function extrairAcoesJson(texto) {
+  const m = texto.match(/ACOES_JSON:\s*```json\s*([\s\S]*?)\s*```/);
+  if (m) { try { return JSON.parse(m[1]); } catch { return {}; } }
+  return {};
+}
+
+function inserirSugestao(agente, sugestao, acoes) {
+  return new Promise(resolve => {
+    sbReq('POST', 'central_aprovacao', '', JSON.stringify({
+      agente, sugestao, acoes_json: JSON.stringify(acoes), status: 'Pendente', executado: false
+    }), () => resolve());
+  });
+}
+
+async function contarDealsPorColuna() {
+  const out = {};
+  const data = await voibiReq('GET', '/api/v1/columns');
+  for (const pipe of (data.pipelines || [])) {
+    out[pipe.name] = {};
+    for (const col of (pipe.columns || [])) {
+      try { const r = await voibiReq('GET', `/api/v1/deals?column_id=${col.id}&limit=1`); out[pipe.name][col.name] = r.total || (r.pagination && r.pagination.total) || 0; }
+      catch { out[pipe.name][col.name] = 0; }
+    }
+  }
+  return out;
+}
+
+async function descobrirUsuarios() {
+  const mp = {};
+  const colher = rows => { for (const x of rows) {
+    if (x.assigned_user_id && x.assigned_user_name) mp[x.assigned_user_name] = x.assigned_user_id;
+    if (x.created_by_user_id && x.created_by_user_name) mp[x.created_by_user_name] = x.created_by_user_id;
+  } };
+  try { colher((await voibiReq('GET', '/api/v1/tasks?limit=100')).data || []); } catch {}
+  try { colher((await voibiReq('GET', '/api/v1/deals?limit=100')).data || []); } catch {}
+  return mp;
+}
+
+async function agenteAnalista() {
+  const deals = (await voibiReq('GET', '/api/v1/deals?limit=50')).data || [];
+  const contatos = (await voibiReq('GET', '/api/v1/contacts?limit=100')).data || [];
+  const distribuicao = await contarDealsPorColuna();
+  const usuarios = await descobrirUsuarios();
+  const total = contatos.length;
+  const semEmail = contatos.filter(c => !c.email).length;
+  const semEmpresa = contatos.filter(c => !c.company).length;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const amanha = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const prompt =
+    'Voce e o Analista Comercial do Centro de Treinamento Juarez Leite. Analise os dados VIVOS do CRM Voibi abaixo e produza um diagnostico curto e acionavel.\n\n' +
+    'DISTRIBUICAO EXATA DO FUNIL (total de deals por coluna, por pipeline):\n' + JSON.stringify(distribuicao, null, 2) + '\n\n' +
+    'AMOSTRA DE DEALS (50 mais recentes, com IDs reais):\n' + JSON.stringify(deals, null, 2) + '\n\n' +
+    'AMOSTRA DE CONTATOS (' + total + ' lidos nesta rodada): sem email ' + semEmail + ', sem empresa ' + semEmpresa + '.\n\n' +
+    'USUARIOS DISPONIVEIS (nome -> assigned_user_id) para atribuir tarefas:\n' + JSON.stringify(usuarios, null, 2) + '\n\n' +
+    'Produza:\n1. Status do funil e represas detectadas\n2. Leads quentes parados (cite o deal)\n3. Proxima acao concreta por gargalo\n4. Qualidade da base\n5. 3 recomendacoes do dia\n\n' +
+    'Ao final, gere obrigatoriamente um bloco ACOES_JSON com as tarefas concretas a criar no Voibi (maximo 5, as mais urgentes). Use IDs REAIS dos dados acima.\n' +
+    'Regras: "assigned_user_id" deve ser um UUID da lista de usuarios (se nao tiver certeza, deixe ""). "deal_id" deve ser o id de um deal acima quando a tarefa for sobre um lead (senao ""). "priority" deve ser low, medium, high ou urgent.\n' +
+    'Formato EXATO (nao altere a estrutura):\nACOES_JSON:\n```json\n' +
+    '{"tarefas": [{"title": "titulo curto", "description": "detalhe", "assigned_user_id": "", "deal_id": "", "due_date": "YYYY-MM-DDTHH:MM:SS-03:00", "priority": "high"}]}\n```\n' +
+    'Use a data de hoje (' + hoje + ') ou amanha (' + amanha + ') nos prazos.';
+  const resp = await chamarClaude(prompt);
+  await inserirSugestao('Analista Comercial', resp, extrairAcoesJson(resp));
+}
+
+async function agenteGestor() {
+  const tarefas = (await voibiReq('GET', '/api/v1/tasks?limit=100')).data || [];
+  const usuarios = await descobrirUsuarios();
+  const agora = new Date().toISOString();
+  const hoje = agora.slice(0, 10);
+  const amanha = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const prompt =
+    'Voce e o Gestor de Tarefas do Centro de Treinamento Juarez Leite. Analise as tarefas VIVAS do Voibi abaixo e produza sugestoes de gestao.\n\n' +
+    'DATA ATUAL: ' + agora + '\n\n' +
+    'TAREFAS (com IDs reais):\n' + JSON.stringify(tarefas, null, 2) + '\n\n' +
+    'USUARIOS (nome -> assigned_user_id):\n' + JSON.stringify(usuarios, null, 2) + '\n\n' +
+    'Produza:\n1. Tarefas ATRASADAS (due_date no passado e status diferente de completed)\n2. Tarefas VENCENDO HOJE\n3. Tarefas das PROXIMAS 48h\n4. Avaliacao de carga por responsavel e sugestao de redistribuicao\n5. Resumo diario: total atrasadas, vencendo hoje, % no prazo, 3 focos do dia\n\n' +
+    'Ao final, gere obrigatoriamente um bloco ACOES_JSON.\n' +
+    'Regras: em "tarefas_atualizar", "id" e o UUID real da tarefa e "status" so pode ser pending, in_progress, completed ou cancelled; "priority" so pode ser low, medium, high, urgent. Em "tarefas_criar", siga o mesmo formato de tarefa (title, description, assigned_user_id, deal_id, due_date, priority).\n' +
+    'Formato EXATO (nao altere a estrutura):\nACOES_JSON:\n```json\n' +
+    '{"tarefas_atualizar": [{"id": "uuid-task", "status": "in_progress", "priority": "urgent"}], "tarefas_criar": [{"title": "titulo", "description": "", "assigned_user_id": "", "deal_id": "", "due_date": "YYYY-MM-DDTHH:MM:SS-03:00", "priority": "medium"}]}\n```\n' +
+    'Use datas reais (' + hoje + ', ' + amanha + '). Se nao houver itens, envie listas vazias.';
+  const resp = await chamarClaude(prompt);
+  await inserirSugestao('Gestor de Tarefas', resp, extrairAcoesJson(resp));
+}
+
+async function agenteQualidade() {
+  const contatos = (await voibiReq('GET', '/api/v1/contacts?limit=100')).data || [];
+  const deals = (await voibiReq('GET', '/api/v1/deals?limit=50')).data || [];
+  const prompt =
+    'Voce e o agente de Qualidade do CRM do Centro de Treinamento Juarez Leite. Analise os dados VIVOS do Voibi e produza um relatorio de higiene.\n\n' +
+    'CONTATOS (ate 100, com IDs reais):\n' + JSON.stringify(contatos, null, 2) + '\n\n' +
+    'DEALS (para checar negocios sem valor):\n' + JSON.stringify(deals, null, 2) + '\n\n' +
+    'Produza:\n1. Contatos incompletos (faltando nome, email ou empresa)\n2. Negocios sem valor preenchido\n3. Duplicados suspeitos com sugestao de qual manter\n4. Percentual de completude\n\n' +
+    'Ao final, gere obrigatoriamente um bloco ACOES_JSON com os contatos a sinalizar com a etiqueta "' + VOIBI_TAG_REVISAO + '" (maximo 20 casos criticos). Use o "contact_id" REAL (UUID) de cada contato acima.\n' +
+    'Formato EXATO (nao altere a estrutura):\nACOES_JSON:\n```json\n' +
+    '{"contatos_revisar": [{"contact_id": "uuid-do-contato", "problema": "descricao do problema"}]}\n```\n' +
+    'Se nao houver contatos criticos, envie lista vazia.';
+  const resp = await chamarClaude(prompt);
+  await inserirSugestao('Qualidade CRM', resp, extrairAcoesJson(resp));
+}
+
+async function rodarVarreduraNode() {
+  try { await agenteAnalista(); } catch (e) { console.error('Analista falhou:', e.message); }
+  try { await agenteGestor(); } catch (e) { console.error('Gestor falhou:', e.message); }
+  try { await agenteQualidade(); } catch (e) { console.error('Qualidade falhou:', e.message); }
+  console.log('Varredura (Node) concluida.');
+}
+
 http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true);
   const p = parsed.pathname;
@@ -266,15 +394,8 @@ http.createServer(async (req, res) => {
     const sess = getSession(req);
     if (!sess) { j(res, 401, { erro: 'Não autenticado' }); return; }
     if (!sess.pode_varredura) { j(res, 403, { erro: 'Sem permissão para rodar varredura' }); return; }
-    // Fire-and-forget: a varredura demora (consultas ao Voibi + Claude). Roda
-    // destacada para nao depender da conexao HTTP, e responde na hora.
-    try {
-      const proc = spawn('python3', [PYTHON_SCRIPT, '--manual'], { detached: true, stdio: 'ignore' });
-      proc.on('error', e => console.error('Falha ao iniciar varredura (python indisponivel?):', e.message));
-      proc.unref();
-    } catch (e) {
-      console.error('spawn varredura falhou:', e.message);
-    }
+    // Roda a varredura em Node (sem Python), em segundo plano, e responde na hora.
+    rodarVarreduraNode().catch(e => console.error('varredura node falhou:', e.message));
     logSistema('varredura_manual', sess.nome, 'Iniciou varredura manual');
     j(res, 202, { ok: true, started: true, message: 'Varredura iniciada. Aguarde 1 a 2 minutos e atualize.' });
     return;
